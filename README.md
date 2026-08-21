@@ -140,9 +140,9 @@ docker compose run --rm app python -m app.main list-videos --status failed
 
 ```bash
 docker compose run --rm app python -m app.main crawl-channel \
-  --channel-url "https://www.youtube.com/@vexilla01" \
-  --channel-name "我的事务所" \
-  --category "时政"
+  --channel-url "https://www.youtube.com/@example" \
+  --channel-name "示例财经频道" \
+  --category "财经"
 ```
 
 只采集普通影片：
@@ -164,7 +164,7 @@ docker compose run --rm app python -m app.main crawl-channel \
 
 ```bash
 docker compose run --rm app python -m app.main list-channel-videos \
-  --channel-url "https://www.youtube.com/@vexilla01" \
+  --channel-url "https://www.youtube.com/@example" \
   --limit 100
 ```
 
