@@ -1,0 +1,6 @@
+SQLAlchemy>=2.0,<3.0
+psycopg2-binary>=2.9,<3.0
+yt-dlp>=2025.1.15
+python-dotenv>=1.0,<2.0
+APScheduler>=3.10,<4.0
+tqdm>=4.66,<5.0

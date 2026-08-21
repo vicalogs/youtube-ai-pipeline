@@ -1,0 +1,45 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      DOWNLOAD_DIR: /app/audio/downloads
+      LOG_FILE: /app/logs/app.log
+      SCHEDULER_INTERVAL_MINUTES: ${SCHEDULER_INTERVAL_MINUTES:-30}
+      MAX_RETRIES: ${MAX_RETRIES:-3}
+      DOWNLOAD_TIMEOUT_SECONDS: ${DOWNLOAD_TIMEOUT_SECONDS:-3600}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CHANNEL_SYNC_TABS: ${CHANNEL_SYNC_TABS:-videos,shorts,streams}
+      CHANNEL_BATCH_CHECK_INTERVAL_MINUTES: ${CHANNEL_BATCH_CHECK_INTERVAL_MINUTES:-1}
+      AUTO_ENQUEUE_CATALOG: ${AUTO_ENQUEUE_CATALOG:-true}
+      CATALOG_ENQUEUE_BATCH_SIZE: ${CATALOG_ENQUEUE_BATCH_SIZE:-20}
+      YTDLP_PROXY: ${YTDLP_PROXY:-}
+      WHISPER_CPP_BINARY: /usr/local/bin/whisper-main
+      WHISPER_MODEL_PATH: /app/models/whisper/ggml-small.bin
+    volumes:
+      - ./audio/downloads:/app/audio/downloads
+      - ./logs:/app/logs
+      - ./transcripts:/app/transcripts
+
+  transcription-worker:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.main", "transcription-worker"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      DOWNLOAD_DIR: /app/audio/downloads
+      LOG_FILE: /app/logs/app.log
+      WHISPER_CPP_BINARY: /usr/local/bin/whisper-main
+      WHISPER_MODEL_PATH: /app/models/whisper/ggml-small.bin
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      WHISPER_LANGUAGE: ${WHISPER_LANGUAGE:-zh}
+      TRANSCRIPT_DIR: /app/transcripts
+      TRANSCRIPTION_MAX_RETRIES: ${TRANSCRIPTION_MAX_RETRIES:-3}
+      TRANSCRIPTION_POLL_SECONDS: ${TRANSCRIPTION_POLL_SECONDS:-10}
+      TRANSCRIPTION_TIMEOUT_SECONDS: ${TRANSCRIPTION_TIMEOUT_SECONDS:-7200}
+      TRANSCRIPTION_STALE_MINUTES: ${TRANSCRIPTION_STALE_MINUTES:-120}
+    volumes:
+      - ./audio/downloads:/app/audio/downloads
+      - ./logs:/app/logs
+      - ./transcripts:/app/transcripts

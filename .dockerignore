@@ -1,0 +1,10 @@
+.env
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+audio/downloads
+logs
+tests
+transcripts
