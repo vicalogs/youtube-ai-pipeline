@@ -89,17 +89,37 @@ class TranscriberTests(unittest.TestCase):
                     video_title='测试/标题:第一期',
                 )
 
+            # The whisper payload carries an incomplete UTF-8 sequence, so a
+            # readable transcript also proves lenient decoding still works.
             self.assertEqual(result.transcript_text, "测试文字")
-            self.assertTrue(result.captions_path.is_file())
-            self.assertTrue(result.srt_path.is_file())
             self.assertTrue(result.transcript_path.is_file())
-            self.assertTrue(result.raw_json_path.is_file())
-            self.assertIn("\ufffd", result.raw_json_path.read_text(encoding="utf-8"))
-            self.assertIn("老蛮频道", str(result.captions_path))
-            self.assertEqual(result.captions_path.parent.name, "测试_标题_第一期")
-            self.assertNotIn("video-7", str(result.captions_path))
+            self.assertEqual(result.transcript_path.name, "audio.md")
+            markdown = result.transcript_path.read_text(encoding="utf-8")
+            self.assertTrue(markdown.startswith("# 测试/标题:第一期\n"))
+            self.assertIn("`audio.mp3`", markdown)
+            self.assertIn("00:00:01", markdown)
+            self.assertTrue(markdown.rstrip().endswith("测试文字"))
+            # transcripts/<频道>/<音频名>.md, with no per-video subdirectory.
+            self.assertEqual(result.transcript_path.parent.name, "老蛮频道")
+            self.assertEqual(
+                result.transcript_path.parent.parent, (root / "transcripts").resolve()
+            )
+            self.assertNotIn("video-7", str(result.transcript_path))
+            self.assertEqual(
+                [item.name for item in result.transcript_path.parent.iterdir()],
+                ["audio.md"],
+            )
             whisper_command = calls[1][0]
-            self.assertIn("--dtw", whisper_command)
+            self.assertIn("--output-json-full", whisper_command)
+            # Without this prompt whisper.cpp returns Chinese with no punctuation.
+            self.assertEqual(
+                whisper_command[whisper_command.index("--prompt") + 1],
+                "以下是普通话的句子。",
+            )
+            # Word-level segmentation stripped sentence punctuation, and nothing
+            # consumes token timestamps now that only Markdown is produced.
+            for removed in ("--split-on-word", "--max-len", "--dtw"):
+                self.assertNotIn(removed, whisper_command)
             self.assertNotIn("shell", calls[0][1])
             self.assertNotIn("shell", calls[1][1])
 

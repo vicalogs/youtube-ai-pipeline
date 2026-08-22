@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any
 
 
 MAX_CHARACTERS_PER_PAGE = 30
 MAX_PAGE_DURATION_MS = 6000
 LONG_PAUSE_MS = 700
+MARKDOWN_PARAGRAPH_PAUSE_MS = 1000
+MARKDOWN_MIN_PARAGRAPH_CHARACTERS = 120
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,4 +143,72 @@ def serialize_srt(captions: list[Caption]) -> str:
 
 def transcript_text(captions: list[Caption]) -> str:
     return "".join(caption.text for caption in captions).strip()
+
+
+def transcript_paragraphs(
+    captions: list[Caption],
+    *,
+    min_characters: int = MARKDOWN_MIN_PARAGRAPH_CHARACTERS,
+    pause_ms: int = MARKDOWN_PARAGRAPH_PAUSE_MS,
+) -> list[str]:
+    """Group captions into readable paragraphs for Markdown output.
+
+    whisper.cpp does not reliably emit sentence-ending punctuation for Chinese,
+    so a speech pause also starts a new paragraph once the current one is long
+    enough to stand on its own.
+    """
+    paragraphs: list[str] = []
+    current: list[Caption] = []
+    previous_end: int | None = None
+
+    for caption in captions:
+        pause = caption.startMs - previous_end if previous_end is not None else 0
+        text_so_far = "".join(token.text for token in current)
+        ends_sentence = bool(re.search(r"[。！？!?]\s*$", text_so_far))
+        if (
+            current
+            and _character_count(current) >= min_characters
+            and (pause >= pause_ms or ends_sentence)
+        ):
+            paragraphs.append(text_so_far.strip())
+            current = []
+        current.append(caption)
+        previous_end = caption.endMs
+
+    if current:
+        paragraphs.append("".join(token.text for token in current).strip())
+    return [paragraph for paragraph in paragraphs if paragraph]
+
+
+def _duration_label(milliseconds: int) -> str:
+    hours, remainder = divmod(max(0, milliseconds), 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    return f"{hours:02}:{minutes:02}:{remainder // 1000:02}"
+
+
+def serialize_markdown(
+    captions: list[Caption],
+    *,
+    title: str,
+    audio_filename: str,
+    model: str | None = None,
+    language: str | None = None,
+    generated_at: datetime | None = None,
+) -> str:
+    model_label = model or "unknown"
+    if language:
+        model_label = f"{model_label}（{language}）"
+    header = "\n".join(
+        [
+            f"# {title}",
+            "",
+            f"- **音频文件**：`{audio_filename}`",
+            f"- **时长**：{_duration_label(captions[-1].endMs if captions else 0)}",
+            f"- **识别模型**：{model_label}",
+            f"- **生成时间**："
+            f"{(generated_at or datetime.now()).strftime('%Y-%m-%d %H:%M:%S')}",
+        ]
+    )
+    body = "\n\n".join(transcript_paragraphs(captions))
+    return f"{header}\n\n---\n\n{body}\n"
 

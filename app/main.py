@@ -261,9 +261,6 @@ def run_command(args: argparse.Namespace) -> int:
                 {
                     "audio_path": str(audio_path),
                     "transcript_path": str(result.transcript_path),
-                    "captions_path": str(result.captions_path),
-                    "srt_path": str(result.srt_path),
-                    "raw_json_path": str(result.raw_json_path),
                 },
                 ensure_ascii=False,
             )
@@ -540,9 +537,6 @@ def run_command(args: argparse.Namespace) -> int:
                             "language": task.language,
                             "retry_count": task.retry_count,
                             "transcript_path": task.transcript_path,
-                            "captions_path": task.captions_path,
-                            "srt_path": task.srt_path,
-                            "raw_json_path": task.raw_json_path,
                             "error_message": task.error_message,
                         },
                         ensure_ascii=False,

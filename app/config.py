@@ -58,6 +58,9 @@ class Settings:
     whisper_model: str = "small"
     whisper_language: str = "zh"
     whisper_threads: int = 3
+    # whisper.cpp emits Chinese without punctuation unless the decoder is
+    # primed with a punctuated sample sentence.
+    whisper_prompt: str = "以下是普通话的句子。"
     transcript_dir: Path = PROJECT_ROOT / "transcripts"
     transcription_max_retries: int = 3
     transcription_poll_seconds: int = 10
@@ -106,6 +109,7 @@ def get_settings() -> Settings:
         whisper_model=os.getenv("WHISPER_MODEL", "small").strip() or "small",
         whisper_language=os.getenv("WHISPER_LANGUAGE", "zh").strip() or "zh",
         whisper_threads=_positive_int("WHISPER_THREADS", 3),
+        whisper_prompt=os.getenv("WHISPER_PROMPT", "以下是普通话的句子。"),
         transcript_dir=_project_path(os.getenv("TRANSCRIPT_DIR", "transcripts")),
         transcription_max_retries=_positive_int("TRANSCRIPTION_MAX_RETRIES", 3),
         transcription_poll_seconds=_positive_int("TRANSCRIPTION_POLL_SECONDS", 10),

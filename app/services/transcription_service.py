@@ -274,9 +274,6 @@ def process_transcription(
             task.status = TranscriptionStatus.COMPLETED.value
             task.transcript_text = result.transcript_text
             task.transcript_path = str(result.transcript_path)
-            task.captions_path = str(result.captions_path)
-            task.srt_path = str(result.srt_path)
-            task.raw_json_path = str(result.raw_json_path)
             task.completed_at = datetime.now(timezone.utc)
             task.error_message = None
         logger.info("Transcription completed id=%s", task_id)

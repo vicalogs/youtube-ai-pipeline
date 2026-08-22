@@ -217,9 +217,6 @@ class Transcription(Base):
     language: Mapped[str] = mapped_column(String(20), nullable=False, default="zh")
     transcript_text: Mapped[str | None] = mapped_column(Text)
     transcript_path: Mapped[str | None] = mapped_column(String(4096))
-    captions_path: Mapped[str | None] = mapped_column(String(4096))
-    srt_path: Mapped[str | None] = mapped_column(String(4096))
-    raw_json_path: Mapped[str | None] = mapped_column(String(4096))
     retry_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )

@@ -15,13 +15,12 @@ from pathlib import Path
 from typing import Callable
 
 from app.captions import (
-    captions_as_dicts,
-    serialize_srt,
+    serialize_markdown,
     transcript_text,
     whisper_json_to_captions,
 )
 from app.config import get_settings
-from app.downloader import safe_channel_directory_name, safe_directory_name
+from app.downloader import safe_channel_directory_name
 
 
 class TranscriptionError(RuntimeError):
@@ -32,9 +31,6 @@ class TranscriptionError(RuntimeError):
 class TranscriptionResult:
     transcript_text: str
     transcript_path: Path
-    captions_path: Path
-    srt_path: Path
-    raw_json_path: Path
 
 
 ProgressCallback = Callable[[int, str], None]
@@ -173,16 +169,7 @@ def transcribe_audio(
         )
 
     transcript_root = settings.transcript_dir.resolve()
-    output_name = safe_directory_name(
-        video_title or audio_path.stem,
-        fallback=f"video-{video_id}",
-        max_length=180,
-    )
-    output_directory = (
-        settings.transcript_dir
-        / safe_channel_directory_name(channel_name)
-        / output_name
-    )
+    output_directory = settings.transcript_dir / safe_channel_directory_name(channel_name)
     output_directory.mkdir(parents=True, exist_ok=True)
     output_directory = output_directory.resolve()
     if not output_directory.is_relative_to(transcript_root):
@@ -226,17 +213,18 @@ def transcribe_audio(
             str(settings.whisper_threads),
             "--beam-size",
             "1",
-            "--split-on-word",
-            "--max-len",
-            "1",
-            "--dtw",
-            settings.whisper_model,
             "--output-json-full",
-            "--output-file",
-            str(whisper_output),
-            "--file",
-            str(wav_path),
         ]
+        if settings.whisper_prompt:
+            whisper_command.extend(["--prompt", settings.whisper_prompt])
+        whisper_command.extend(
+            [
+                "--output-file",
+                str(whisper_output),
+                "--file",
+                str(wav_path),
+            ]
+        )
         if progress_callback:
             whisper_command.append("--print-progress")
             _run_with_progress(
@@ -264,24 +252,24 @@ def transcribe_audio(
             raise TranscriptionError("whisper.cpp produced invalid JSON") from exc
         captions = whisper_json_to_captions(raw)
 
-    raw_json_path = output_directory / "whisper-raw.json"
-    captions_path = output_directory / "captions.json"
-    srt_path = output_directory / "transcript.srt"
-    transcript_path = output_directory+".md"
+    # The Markdown file keeps the audio file name so a transcript can always be
+    # matched back to the recording it came from.
+    transcript_stem = audio_path.stem or f"video-{video_id}"
+    transcript_path = output_directory / f"{transcript_stem}.md"
     text = transcript_text(captions)
-    _atomic_write(raw_json_path, raw_text)
     _atomic_write(
-        captions_path,
-        json.dumps(captions_as_dicts(captions), ensure_ascii=False, indent=2),
+        transcript_path,
+        serialize_markdown(
+            captions,
+            title=video_title or transcript_stem,
+            audio_filename=audio_path.name,
+            model=settings.whisper_model,
+            language=settings.whisper_language,
+        ),
     )
-    _atomic_write(srt_path, serialize_srt(captions))
-    _atomic_write(transcript_path, text + "\n")
     if progress_callback:
         progress_callback(100, "完成")
     return TranscriptionResult(
         transcript_text=text,
         transcript_path=transcript_path,
-        captions_path=captions_path,
-        srt_path=srt_path,
-        raw_json_path=raw_json_path,
     )

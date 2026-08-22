@@ -15,7 +15,7 @@
 - 文件日志滚动保存到 `logs/app.log`
 - 默认失败最多尝试 3 次，失败记录不会被删除
 - 使用本地 whisper.cpp 和 Metal 将已下载音频转成中文文字
-- 输出兼容旧 Remotion 的 Caption JSON、分页 SRT、TXT 和原始 JSON
+- 输出单个 Markdown 文件，文件名与音频一致，正文按语义分段
 - 为 AI 摘要和 Embedding 提供扩展协议
 
 ## 目录结构与模块说明
@@ -30,7 +30,7 @@ youtube-ai-pipeline/
 │   ├── downloader.py           # 安全调用 yt-dlp 并验证输出文件
 │   ├── channel_crawler.py      # 流式采集频道影片 JSON 元数据
 │   ├── transcriber.py           # FFmpeg 与 whisper.cpp 本地转录适配器
-│   ├── captions.py              # 旧 Caption 格式兼容与分页 SRT
+│   ├── captions.py              # Whisper JSON 解析与 Markdown 分段输出
 │   ├── scheduler.py            # 每 30 分钟执行下载周期
 │   ├── logger.py               # 控制台与滚动文件日志
 │   ├── extensions.py           # 转录、摘要、向量接口预留
@@ -288,7 +288,7 @@ python -m app.main transcribe-audio \
   --progress
 ```
 
-`--channel-name` 默认是 `direct-audio`，`--title` 默认使用音频文件名。结果写入 `TRANSCRIPT_DIR/<频道>/<标题>/`，命令完成后会输出文本、字幕、SRT 和原始 JSON 文件路径。该命令不查询或写入数据库。
+`--channel-name` 默认是 `direct-audio`，`--title` 默认使用音频文件名。结果写入 `TRANSCRIPT_DIR/<频道>/<音频名>.md`，命令完成后会输出该文件路径。该命令不查询或写入数据库。
 
 根据 `videos` 表的主键立即转录指定视频（不等待队列顺序）：
 
@@ -338,14 +338,15 @@ python -m app.main retry-transcription --task-id 1
 ```text
 transcripts/
 └── 老蛮频道/
-    └── 视频标题/
-        ├── captions.json       # 兼容旧 Remotion Caption[]
-        ├── transcript.srt      # 30字/6秒/700ms停顿分页
-        ├── transcript.txt      # AI摘要和全文检索输入
-        └── whisper-raw.json    # 完整词级时间轴和置信度
+    ├── 视频标题1.md
+    └── 视频标题2.md
 ```
 
-目录名来自 `videos.title`，其中 `/`、`:` 等文件系统非法字符会替换为下划线；标题为空时使用下载音频的文件名。
+每次转录只生成一个 Markdown 文件，文件名与下载的音频文件同名。因为 `yt-dlp` 按 `%(title)s.%(ext)s` 保存音频，所以这个名字就是视频标题，转录结果和音频可以直接一一对应。
+
+Markdown 包含标题、音频文件名、时长、识别模型和生成时间的头部，正文按语义分段。whisper.cpp 对中文不一定输出句号，所以段落在累计 `MARKDOWN_MIN_PARAGRAPH_CHARACTERS`（默认120）字之后，遇到句末标点**或**超过 `MARKDOWN_PARAGRAPH_PAUSE_MS`（默认1000毫秒）的停顿即断开，两个条件满足其一即可。
+
+频道目录名中 `/`、`:` 等文件系统非法字符会替换为下划线。
 
 转录状态为 `pending → transcribing → completed/failed`。失败任务最多重试 `TRANSCRIPTION_MAX_RETRIES` 次；Worker异常退出后，超过 `TRANSCRIPTION_STALE_MINUTES` 的遗留任务会自动恢复。
 
@@ -400,6 +401,7 @@ python -m app.main list-videos
 | `WHISPER_MODEL_PATH` | `models/whisper/ggml-small.bin` | 项目内本地模型文件 |
 | `WHISPER_MODEL` | `small` | 模型名称及DTW配置 |
 | `WHISPER_LANGUAGE` | `zh` | 识别语言 |
+| `WHISPER_PROMPT` | `以下是普通话的句子。` | 初始提示词，中文标点的开关；留空则不传 |
 | `TRANSCRIPT_DIR` | `transcripts` | 转录文件输出目录 |
 | `TRANSCRIPTION_MAX_RETRIES` | `3` | 转录失败次数上限 |
 | `TRANSCRIPTION_POLL_SECONDS` | `10` | 空队列轮询周期 |

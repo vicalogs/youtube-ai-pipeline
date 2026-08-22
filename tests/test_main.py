@@ -20,10 +20,7 @@ class MainCommandTests(unittest.TestCase):
             audio_path.touch()
             result = TranscriptionResult(
                 transcript_text="测试文字",
-                transcript_path=root / "transcript.txt",
-                captions_path=root / "captions.json",
-                srt_path=root / "transcript.srt",
-                raw_json_path=root / "whisper-raw.json",
+                transcript_path=root / "节目.md",
             )
             args = build_parser().parse_args(
                 [
