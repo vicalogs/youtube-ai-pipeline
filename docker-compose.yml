@@ -21,6 +21,9 @@ services:
       - ./audio/downloads:/app/audio/downloads
       - ./logs:/app/logs
       - ./transcripts:/app/transcripts
+    networks:
+      - default
+      - db_net
 
   transcription-worker:
     build: .
@@ -43,3 +46,12 @@ services:
       - ./audio/downloads:/app/audio/downloads
       - ./logs:/app/logs
       - ./transcripts:/app/transcripts
+    networks:
+      - default
+      - db_net
+
+networks:
+  # Created by the separate local-db-stack compose project; start that stack first.
+  db_net:
+    external: true
+    name: local-db-stack_db_net
